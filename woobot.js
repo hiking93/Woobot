@@ -291,12 +291,9 @@ function end(wsIndex) {
 	var talk = talks[wsIndex];
 	talk.left = true;
 	if (!talk.ended) {
-		print (wsIndex + 'end true');
 		talk.ended = true;
 		changePerson(wsIndex);
 		closeConnection(wsIndex);
-	} else {
-		print (wsIndex + 'end false');
 	}
 }
 
