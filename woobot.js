@@ -7,7 +7,9 @@ var fs = require('fs');
 
 const DEBUG_RECEIVE = false;
 const DEBUG_SEND = false;
+const DEBUG_DUPLICATION = false;
 const AUTO_RESTART = true;
+const CHAT_KEY = "Dcard";
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -125,6 +127,10 @@ function initTalk(wsIndex) {
 		});
 		connection.on('close', function() {
 			print('連線已關閉', 0, wsIndex);
+			if (!talks[wsIndex].left) {
+				// Socket closed before 'chat_otherleave', end session
+				end(wsIndex);
+			}
 		});
 		connection.on('message', function(message) {
 			if (message.type === 'utf8') {
@@ -141,7 +147,7 @@ function initTalk(wsIndex) {
 		'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4',
 		'Cache-Control': 'no-cache',
 		'Connection': 'Upgrade',
-		'Cookie': cookie,
+		'Cookie': cookie + '; _key=' + encodeURI(CHAT_KEY),
 		'Host': 'wootalk.today',
 		'Origin': 'https://wootalk.today',
 		'Pragma': 'no-cache',
@@ -176,6 +182,7 @@ function onMessage(wsIndex, data) {
 }
 
 function parseMessage(wsIndex, msg) {
+	var talk = talks[wsIndex];
 	if (DEBUG_RECEIVE) {
 		print(wsIndex + ' received: ' + JSON.stringify(msg));
 	}
@@ -185,17 +192,21 @@ function parseMessage(wsIndex, msg) {
 				onBotCheck(wsIndex, msg.message);
 			}
 			break;
-			case 'chat_otherleave':{
+			case 'chat_otherleave': {
 				print('已離開', 0, wsIndex);
 				if (AUTO_RESTART) {
 					restart();
 				} else {
+					talk.left = true;
 					end(wsIndex);
 				}
 			}
 			break;
+			case 'chat_finding': {
+				print('正在尋找對象……', 0, wsIndex);
+			}
+			break;
 			case 'chat_started': {
-				var talk = talks[wsIndex];
 				if (!talk.chatStarted) {
 					// Start chat
 					print('找到對象', 0, wsIndex);
@@ -208,7 +219,10 @@ function parseMessage(wsIndex, msg) {
 					}
 				} else {
 					// Duplicated websocket
-					print('Websocket duplication: ' + (++talk.instanceCount), 0, wsIndex);
+					talk.instanceCount += 1;
+					if (DEBUG_DUPLICATION) {
+						print('Websocket duplication: ' + talk.instanceCount, 0, wsIndex);
+					}
 				}
 			}
 			break;
