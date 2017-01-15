@@ -9,7 +9,7 @@ const DEBUG_RECEIVE = false;
 const DEBUG_SEND = false;
 const DEBUG_DUPLICATION = false;
 const AUTO_RESTART = true;
-const CHAT_KEY = "Dcard";
+const CHAT_KEY = "成人模式";
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -64,10 +64,12 @@ function restart() {
 }
 
 function initClient(wsIndex) {
-	talks[wsIndex].draft = [];
 	if (wsIndex == 0) {
-		print('------------------------------');
+		print('------------------------------------');
 	}
+
+	talks[wsIndex].draft = [];
+
 	if (!('cookies' in config)) {
 		config['cookies'] = [];
 	}
@@ -121,6 +123,8 @@ function initTalk(wsIndex) {
 		talks[wsIndex].chatStarted = false;
 		talks[wsIndex].lastId = -1;
 		talks[wsIndex].instanceCount = 1;
+		talks[wsIndex].left = false;
+		talks[wsIndex].ended = false;
 
 		connection.on('error', function(error) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
@@ -129,7 +133,7 @@ function initTalk(wsIndex) {
 			print('連線已關閉', 0, wsIndex);
 			if (!talks[wsIndex].left) {
 				// Socket closed before 'chat_otherleave', end session
-				end(wsIndex);
+				restart();
 			}
 		});
 		connection.on('message', function(message) {
@@ -155,7 +159,9 @@ function initTalk(wsIndex) {
 		'Upgrade': 'websocket',
 		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
 	}
-
+	if (CHAT_KEY) {
+		print('使用密語：' + CHAT_KEY);
+	}
 	ws.connect(WS_URI, null, WS_ORIGIN, headers);
 }
 
@@ -194,10 +200,10 @@ function parseMessage(wsIndex, msg) {
 			break;
 			case 'chat_otherleave': {
 				print('已離開', 0, wsIndex);
+				talk.left = true;
 				if (AUTO_RESTART) {
 					restart();
 				} else {
-					talk.left = true;
 					end(wsIndex);
 				}
 			}
@@ -282,8 +288,16 @@ function endAll() {
 }
 
 function end(wsIndex) {
-	changePerson(wsIndex);
-	closeConnection(wsIndex);
+	var talk = talks[wsIndex];
+	talk.left = true;
+	if (!talk.ended) {
+		print (wsIndex + 'end true');
+		talk.ended = true;
+		changePerson(wsIndex);
+		closeConnection(wsIndex);
+	} else {
+		print (wsIndex + 'end false');
+	}
 }
 
 function closeConnection(wsIndex) {
