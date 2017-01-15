@@ -8,8 +8,9 @@ var fs = require('fs');
 const DEBUG_RECEIVE = false;
 const DEBUG_SEND = false;
 const DEBUG_DUPLICATION = false;
+const PRINT_EVENTS = false;
 const AUTO_RESTART = true;
-const CHAT_KEY = "成人模式";
+const CHAT_KEY = "";
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -92,10 +93,14 @@ function readConfig() {
 	try {
 		var fileData = fs.readFileSync(CONFIG_FILE_NAME);
 		var config = JSON.parse(fileData);
-		print("已讀取設定檔");
+		if (PRINT_EVENTS) {
+			print("已讀取設定檔");
+		}
 		return config;
 	} catch(err) {
-		print("沒有設定檔");
+		if (PRINT_EVENTS) {
+			print("沒有設定檔");
+		}
 		return {};
 	}
 }
@@ -105,7 +110,9 @@ function saveConfig() {
 		if (err) {
 			print(err);
 		}
-		print("已儲存設定檔");
+		if (PRINT_EVENTS) {
+			print("已儲存設定檔");
+		}
 	}); 
 }
 
@@ -117,7 +124,9 @@ function initTalk(wsIndex) {
 	});
 
 	ws.on('connect', function(connection) {
-		print('連線已開啟', 0, wsIndex);
+		if (PRINT_EVENTS) {
+			print('連線已開啟', 0, wsIndex);
+		}
 
 		talks[wsIndex].connection = connection;
 		talks[wsIndex].chatStarted = false;
@@ -130,7 +139,9 @@ function initTalk(wsIndex) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
 		});
 		connection.on('close', function() {
-			print('連線已關閉', 0, wsIndex);
+			if (PRINT_EVENTS) {
+				print('連線已關閉', 0, wsIndex);
+			}
 			if (!talks[wsIndex].left) {
 				// Socket closed before 'chat_otherleave', end session
 				restart();
@@ -171,7 +182,9 @@ function onMessage(wsIndex, data) {
 	var data = msg[1].data;
 	switch (type) {
 		case 'client_connected': {
-			print('已連接', 0, wsIndex);
+			if (PRINT_EVENTS) {
+				print('已連接', 0, wsIndex);
+			}
 		}
 		break;
 		case 'new_message': {
@@ -199,7 +212,9 @@ function parseMessage(wsIndex, msg) {
 			}
 			break;
 			case 'chat_otherleave': {
-				print('已離開', 0, wsIndex);
+				if (PRINT_EVENTS) {
+					print('已離開', 0, wsIndex);
+				}
 				talk.left = true;
 				if (AUTO_RESTART) {
 					restart();
@@ -209,13 +224,17 @@ function parseMessage(wsIndex, msg) {
 			}
 			break;
 			case 'chat_finding': {
-				print('正在尋找對象……', 0, wsIndex);
+				if (PRINT_EVENTS) {
+					print('正在尋找對象……', 0, wsIndex);
+				}
 			}
 			break;
 			case 'chat_started': {
 				if (!talk.chatStarted) {
 					// Start chat
-					print('找到對象', 0, wsIndex);
+					if (PRINT_EVENTS) {
+						print('找到對象', 0, wsIndex);
+					}
 					talk.chatStarted = true;
 					for (draftItem of talk.draft) {
 						send(wsIndex, draftItem);
