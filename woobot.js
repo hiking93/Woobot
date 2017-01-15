@@ -1,9 +1,9 @@
-const WebSocket = require('ws');
-const request = require('request');
-const chalk = require('chalk');
-const readline = require('readline');
-const open = require('open');
-const fs = require('fs');
+var WebSocketClient = require('websocket').client;
+var request = require('request');
+var chalk = require('chalk');
+var readline = require('readline');
+var open = require('open');
+var fs = require('fs');
 
 const cookieUri = 'https://wootalk.today/';
 const wsUri = 'wss://wootalk.today/websocket';
@@ -16,8 +16,9 @@ readline.createInterface({
 	input: process.stdin,
 	output: process.stdout
 }).on('line', (input) => {
-	if (input == 'end') {
-		end();
+	if (input == 'init') {
+		restart();
+		initClient(0);
 	}
 });
 
@@ -27,19 +28,18 @@ function init() {
 	initClient(0);
 }
 
-function end() {
-	var finishCount = 0;
+function restart() {
 	for (var i = 0; i < 2; i++) {
-		changePerson(i, function callback(){
-			finishCount++;
-			if (finishCount == 2) {
-				process.exit();
-			}
-		});
+		changePerson(i);
+		var connection = talks[i].connection;
+		if (connection) {
+			connection.close();
+		}
 	}
 }
 
 function initClient(wsIndex) {
+	print('initClient() ' + wsIndex);
 	if (!('cookies' in config)) {
 		config['cookies'] = [];
 	}
@@ -80,41 +80,49 @@ function saveConfig() {
 }
 
 function initTalk(wsIndex) {
-	var cookie = config['cookies'][wsIndex];
-	var ws = new WebSocket('wss://wootalk.today/websocket', [], {
-		'headers': {
-			'Accept-Encoding': 'gzip, deflate, sdch',
-			'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4',
-			'Cache-Control': 'no-cache',
-			'Connection': 'Upgrade',
-			'Cookie': cookie,
-			'Host': 'wootalk.today',
-			'Origin': 'https://wootalk.today',
-			'Pragma': 'no-cache',
-			'Sec-WebSocket-Version': '13',
-			'Upgrade': 'websocket',
-			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
-		},
-	});
-
-	ws.on('open', function open() {
-		print('已開啟連線', 0, wsIndex);
-	});
-
-	ws.on('close', function close() {
-		print('已關閉連線', 0, wsIndex);
-		if (talks[wsIndex].autoReconnect) {
-			print(wsIndex + ' auto reconnect');
-			initTalk(wsIndex);
-		}
-	});
-
-	ws.on('message', function incoming(data, flags) {
-		onMessage(wsIndex, data);
-	});
-
 	talks[wsIndex] = {};
-	talks[wsIndex].ws = ws;
+	var ws = new WebSocketClient();
+
+	ws.on('connectFailed', function(error) {
+		print('連線失敗 - ' + error.toString(), 0, wsIndex);
+	});
+
+	ws.on('connect', function(connection) {
+		print('連線已開啟', 0, wsIndex);
+
+		talks[wsIndex].connection = connection;
+
+		connection.on('error', function(error) {
+			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
+		});
+		connection.on('close', function() {
+			print('連線已關閉', 0, wsIndex);
+		});
+		connection.on('message', function(message) {
+			if (message.type === 'utf8') {
+				onMessage(wsIndex, message.utf8Data);
+			} else {
+				print('Unexpected type: ' + message.type, 0, wsIndex);
+			}
+		});
+	});
+
+	var cookie = config['cookies'][wsIndex];
+	var headers = {
+		'Accept-Encoding': 'gzip, deflate, sdch',
+		'Accept-Language': 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4',
+		'Cache-Control': 'no-cache',
+		'Connection': 'Upgrade',
+		'Cookie': cookie,
+		'Host': 'wootalk.today',
+		'Origin': 'https://wootalk.today',
+		'Pragma': 'no-cache',
+		'Sec-WebSocket-Version': '13',
+		'Upgrade': 'websocket',
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
+	}
+
+	ws.connect('wss://wootalk.today/websocket', null, 'https://wootalk.today', headers);
 }
 
 function onMessage(wsIndex, data) {
@@ -171,7 +179,7 @@ function parseMessage(wsIndex, msg) {
 }
 
 function changePerson(wsIndex, callback) {
-	send(wsIndex, '["change_person", {}]', callback);
+	send(wsIndex, '["change_person", {}]');
 }
 
 function onBotCheck(wsIndex, msg) {
@@ -187,16 +195,13 @@ function sendMessage(wsIndex, content) {
 	send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
 }
 
-function send(wsIndex, msg, callback) {
-	var ws = talks[wsIndex].ws;
-	if (ws && ws.readyState === WebSocket.OPEN) {
+function send(wsIndex, msg) {
+	var connection = talks[wsIndex].connection;
+	if (connection) {
 		print(wsIndex + ' sending: ' + msg);
-		ws.send(msg, callback);
+		connection.sendUTF(msg);
 	} else {
-		print(wsIndex + ' not sent, ws.readyState = ' + ws.readyState + ', msg = ' + msg);
-		if (callback) {
-			callback();
-		}
+		print(wsIndex + ' not yet ready: ' + msg);
 	}
 }
 
