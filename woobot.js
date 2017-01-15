@@ -46,7 +46,7 @@ readline.createInterface({
 
 process.stdin.resume();
 process.on('SIGINT', function () {
-	end();
+	endAll();
 	process.exit();
 });
 
