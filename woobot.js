@@ -17,8 +17,10 @@ readline.createInterface({
 	output: process.stdout
 }).on('line', (input) => {
 	if (input == 'init') {
-		restart();
+		end();
 		initClient(0);
+	} else if (input == 'end') {
+		end();
 	}
 });
 
@@ -28,7 +30,7 @@ function init() {
 	initClient(0);
 }
 
-function restart() {
+function end() {
 	for (var i = 0; i < 2; i++) {
 		changePerson(i);
 		var connection = talks[i].connection;
@@ -39,7 +41,7 @@ function restart() {
 }
 
 function initClient(wsIndex) {
-	print('initClient() ' + wsIndex);
+	print('initClient() ' + wsIndex, 1);
 	if (!('cookies' in config)) {
 		config['cookies'] = [];
 	}
@@ -209,10 +211,10 @@ function print(content, highlight, wsIndex) {
 	var name;
 	var style;
 	if (wsIndex == 0) {
-		style = chalk.blue;
+		style = chalk.cyan;
 		name = 'ws0: ';
 	} else if (wsIndex == 1) {
-		style = chalk.green;
+		style = chalk.yellow;
 		name = 'ws1: ';
 	} else {
 		style = chalk.white;
