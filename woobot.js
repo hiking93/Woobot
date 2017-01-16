@@ -10,7 +10,7 @@ const DEBUG_SEND = false;
 const DEBUG_DUPLICATION = false;
 const PRINT_EVENTS = false;
 const AUTO_RESTART = true;
-const CHAT_KEY = "";
+const CHAT_KEY = '';
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -170,7 +170,7 @@ function initTalk(wsIndex) {
 		'Upgrade': 'websocket',
 		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
 	}
-	if (CHAT_KEY) {
+	if (CHAT_KEY && wsIndex == 0) {
 		print('使用密語：' + CHAT_KEY);
 	}
 	ws.connect(WS_URI, null, WS_ORIGIN, headers);
