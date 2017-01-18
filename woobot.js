@@ -5,6 +5,7 @@ var readline = require('readline');
 var open = require('open');
 var fs = require('fs');
 
+const DEBUG_CALLS = false;
 const DEBUG_RECEIVE = false;
 const DEBUG_SEND = false;
 const DEBUG_DUPLICATION = false;
@@ -65,10 +66,15 @@ function restart() {
 }
 
 function initClient(wsIndex) {
+	if (DEBUG_CALLS) {
+		print('initClient ' + wsIndex);
+	}
+
 	if (wsIndex == 0) {
 		print('------------------------------------');
 	}
 
+	talks[wsIndex] = {};
 	talks[wsIndex].draft = [];
 
 	if (!('cookies' in config)) {
@@ -117,6 +123,10 @@ function saveConfig() {
 }
 
 function initTalk(wsIndex) {
+	if (DEBUG_CALLS) {
+		print('initTalk ' + wsIndex);
+	}
+
 	var ws = new WebSocketClient();
 
 	ws.on('connectFailed', function(error) {
@@ -129,10 +139,9 @@ function initTalk(wsIndex) {
 		}
 
 		talks[wsIndex].connection = connection;
-		talks[wsIndex].chatStarted = false;
 		talks[wsIndex].lastId = -1;
 		talks[wsIndex].instanceCount = 1;
-		talks[wsIndex].left = false;
+		talks[wsIndex].hasPartner = false;
 		talks[wsIndex].ended = false;
 
 		connection.on('error', function(error) {
@@ -142,7 +151,7 @@ function initTalk(wsIndex) {
 			if (PRINT_EVENTS) {
 				print('連線已關閉', 0, wsIndex);
 			}
-			if (!talks[wsIndex].left) {
+			if (talks[wsIndex].hasPartner) {
 				// Socket closed before 'chat_otherleave', end session
 				restart();
 			}
@@ -215,7 +224,7 @@ function parseMessage(wsIndex, msg) {
 				if (PRINT_EVENTS) {
 					print('已離開', 0, wsIndex);
 				}
-				talk.left = true;
+				talk.hasPartner = false;
 				if (AUTO_RESTART) {
 					restart();
 				} else {
@@ -230,14 +239,14 @@ function parseMessage(wsIndex, msg) {
 			}
 			break;
 			case 'chat_started': {
-				if (!talk.chatStarted) {
+				if (!talk.hasPartner) {
 					// Start chat
 					if (PRINT_EVENTS) {
 						print('找到對象', 0, wsIndex);
 					}
-					talk.chatStarted = true;
+					talk.hasPartner = true;
 					for (draftItem of talk.draft) {
-						send(wsIndex, draftItem);
+						sendMessage(wsIndex, draftItem);
 					}
 					if (wsIndex == 0) {
 						initClient(1);
@@ -282,23 +291,32 @@ function onBotCheck(wsIndex, msg) {
 }
 
 function sendMessage(wsIndex, content) {
-	send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
+	var talk = talks[wsIndex];
+	if (isConnectionAlive(wsIndex)) {
+		send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
+	} else if (talk.draft) {
+		talk.draft.push(content);
+		if (DEBUG_SEND) {
+			print(wsIndex + ' add to draft: ' + content);
+		}
+	}
 }
 
 function send(wsIndex, msg) {
 	var talk = talks[wsIndex];
 	var connection = talk.connection;
-	if (connection && !connection.closeDescription) {
+	if (isConnectionAlive(wsIndex)) {
 		connection.sendUTF(msg);
 		if (DEBUG_SEND) {
 			print(wsIndex + ' send: ' + msg);
 		}
-	} else if (talk.draft) {
-		talk.draft.push(msg);
-		if (DEBUG_SEND) {
-			print(wsIndex + ' add to draft: ' + msg);
-		}
 	}
+}
+
+function isConnectionAlive(wsIndex) {
+	var talk = talks[wsIndex];
+	var connection = talk.connection;
+	return connection && !connection.closeDescription;
 }
 
 function endAll() {
@@ -307,19 +325,19 @@ function endAll() {
 }
 
 function end(wsIndex) {
+	if (DEBUG_CALLS) {
+		print('end ' + wsIndex);
+	}
 	var talk = talks[wsIndex];
-	talk.left = true;
+	talk.hasPartner = false;
 	if (!talk.ended) {
 		talk.ended = true;
 		changePerson(wsIndex);
-		closeConnection(wsIndex);
-	}
-}
 
-function closeConnection(wsIndex) {
-	var connection = talks[wsIndex].connection;
-	if (connection && !connection.closeDescription) {
-		connection.close();
+		var connection = talks[wsIndex].connection;
+		if (connection && !connection.closeDescription) {
+			connection.close();
+		}
 	}
 }
 
