@@ -250,6 +250,9 @@ function parseMessage(wsIndex, msg) {
 					talk.hasPartner = true;
 					for (draftItem of talk.draft) {
 						sendMessage(wsIndex, draftItem);
+						if (DEBUG_DRAFT) {
+							print(wsIndex + ' send from draft: ' + content);
+						}
 					}
 					if (wsIndex == 0) {
 						initClient(1);
