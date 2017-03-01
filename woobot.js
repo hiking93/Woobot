@@ -5,11 +5,12 @@ var readline = require('readline');
 var open = require('open');
 var fs = require('fs');
 
-const DEBUG_CALLS = false;
+const DEBUG_CALLS = true;
 const DEBUG_RECEIVE = false;
 const DEBUG_SEND = false;
-const DEBUG_DUPLICATION = false;
-const PRINT_EVENTS = false;
+const DEBUG_DRAFT = true;
+const DEBUG_DUPLICATION = true;
+const PRINT_EVENTS = true;
 const AUTO_RESTART = true;
 const CHAT_KEY = '';
 
@@ -38,9 +39,11 @@ readline.createInterface({
 	} else if (input.startsWith('ws')) {
 		if (input.startsWith('ws0 ')) {
 			var msg = input.replace('ws0 ', '');
+			sendMessage(0, msg);
 			printMessage(0, msg);
 		} else if (input.startsWith('ws1 ')) {
 			var msg = input.replace('ws1 ', '');
+			sendMessage(1, msg);
 			printMessage(1, msg);
 		}
 	}
@@ -296,7 +299,7 @@ function sendMessage(wsIndex, content) {
 		send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
 	} else if (talk.draft) {
 		talk.draft.push(content);
-		if (DEBUG_SEND) {
+		if (DEBUG_SEND || DEBUG_DRAFT) {
 			print(wsIndex + ' add to draft: ' + content);
 		}
 	}
