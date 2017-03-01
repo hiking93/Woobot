@@ -144,7 +144,6 @@ function initTalk(wsIndex) {
 		talks[wsIndex].lastId = -1;
 		talks[wsIndex].instanceCount = 1;
 		talks[wsIndex].hasPartner = false;
-		talks[wsIndex].ended = false;
 
 		connection.on('error', function(error) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
@@ -152,10 +151,6 @@ function initTalk(wsIndex) {
 		connection.on('close', function() {
 			if (PRINT_EVENTS) {
 				print('連線已關閉', 0, wsIndex);
-			}
-			if (talks[wsIndex].hasPartner) {
-				// Socket closed before 'chat_otherleave', end session
-				restart();
 			}
 		});
 		connection.on('message', function(message) {
@@ -274,6 +269,9 @@ function parseMessage(wsIndex, msg) {
 			var messageContent = msg['message'];
 			printMessage(wsIndex, messageContent);
 			sendMessage(wsIndex == 0 ? 1 : 0, messageContent);
+			if (messageContent.includes('女')) {
+				console.log("\007");
+			}
 		}
 	}
 }
@@ -335,14 +333,11 @@ function end(wsIndex) {
 	}
 	var talk = talks[wsIndex];
 	talk.hasPartner = false;
-	if (!talk.ended) {
-		talk.ended = true;
-		changePerson(wsIndex);
+	changePerson(wsIndex);
 
-		var connection = talks[wsIndex].connection;
-		if (connection && !connection.closeDescription) {
-			connection.close();
-		}
+	var connection = talks[wsIndex].connection;
+	if (connection && !connection.closeDescription) {
+		connection.close();
 	}
 }
 
