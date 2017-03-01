@@ -69,12 +69,11 @@ function restart() {
 }
 
 function initClient(wsIndex) {
-	if (DEBUG_CALLS) {
-		print('initClient ' + wsIndex);
-	}
-
 	if (wsIndex == 0) {
 		print('------------------------------------');
+	}
+	if (DEBUG_CALLS) {
+		print('initClient ' + wsIndex);
 	}
 
 	talks[wsIndex] = {};
@@ -251,7 +250,7 @@ function parseMessage(wsIndex, msg) {
 					for (draftItem of talk.draft) {
 						sendMessage(wsIndex, draftItem);
 						if (DEBUG_DRAFT) {
-							print(wsIndex + ' send from draft: ' + content);
+							print(wsIndex + ' send from draft: ' + draftItem);
 						}
 					}
 					if (wsIndex == 0) {
