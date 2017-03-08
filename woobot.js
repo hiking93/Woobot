@@ -6,7 +6,7 @@ var open = require('open');
 var fs = require('fs');
 
 // Settings
-const AUTO_RESTART = true;
+var AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
@@ -31,6 +31,14 @@ readline.createInterface({
 }).on('line', (input) => {
 	if (input == 'init') {
 		restart();
+	} else if (input.startsWith('ar')) {
+		if (input == 'ar1') {
+			AUTO_RESTART = true;
+			print('開啟自動重啟');
+		} else if (input == 'ar0') {
+			AUTO_RESTART = false;
+			print('關閉自動重啟');
+		}
 	} else if (input.startsWith('end')) {
 		if (input == 'end') {
 			endAll();
@@ -264,7 +272,7 @@ function parseMessage(wsIndex, msg) {
 					// Duplicated websocket
 					talk.instanceCount += 1;
 					if (DEBUG_DUPLICATION) {
-						print('Websocket duplication: ' + talk.instanceCount, 0, wsIndex);
+						print('重複的連線：' + talk.instanceCount, 0, wsIndex);
 					}
 				}
 			}
