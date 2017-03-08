@@ -10,9 +10,9 @@ const AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
-const PRINT_EVENTS = false;
+const PRINT_EVENTS = true;
 const DEBUG_CALLS = false;
-const DEBUG_DUPLICATION = false;
+const DEBUG_DUPLICATION = true;
 const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
@@ -151,11 +151,11 @@ function initTalk(wsIndex) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
 		});
 		connection.on('close', function() {
-			if (PRINT_EVENTS) {
-				print('連線已關閉', 0, wsIndex);
-			}
 			if (talks[wsIndex].isAlive) {
+				print('連線意外關閉', 0, wsIndex);
 				endSession(wsIndex);
+			} else if (PRINT_EVENTS) {
+				print('連線已關閉', 0, wsIndex);
 			}
 		});
 		connection.on('message', function(message) {
@@ -290,10 +290,12 @@ function printMessage(wsIndex, messageContent) {
 }
 
 function endSession(wsIndex) {
-	if (AUTO_RESTART) {
-		restart();
-	} else {
-		end(wsIndex);
+	if (talks[wsIndex].isAlive) {
+		if (AUTO_RESTART) {
+			restart();
+		} else {
+			end(wsIndex);
+		}
 	}
 }
 
