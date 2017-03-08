@@ -208,6 +208,7 @@ function onMessage(wsIndex, data) {
 					} else {
 						print('收到歷史記錄，結束前次對話', 0, wsIndex);
 						endSession(wsIndex);
+						break;
 					}
 				}
 			} else {
