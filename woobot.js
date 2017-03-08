@@ -5,14 +5,17 @@ var readline = require('readline');
 var open = require('open');
 var fs = require('fs');
 
+// Settings
+const AUTO_RESTART = true;
+const CHAT_KEY = '';
+
+// Debug messages
 const PRINT_EVENTS = false;
-const AUTO_RESTART = false;
 const DEBUG_CALLS = false;
 const DEBUG_DUPLICATION = false;
 const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
-const CHAT_KEY = '';
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -64,14 +67,12 @@ function init() {
 }
 
 function restart() {
+	print('---------------- 新對話 ----------------');
 	endAll();
 	initClient(0);
 }
 
 function initClient(wsIndex) {
-	if (wsIndex == 0) {
-		print('------------------------------------');
-	}
 	if (DEBUG_CALLS) {
 		print('initClient ' + wsIndex);
 	}
@@ -144,6 +145,7 @@ function initTalk(wsIndex) {
 		talks[wsIndex].lastId = -1;
 		talks[wsIndex].instanceCount = 1;
 		talks[wsIndex].hasPartner = false;
+		talks[wsIndex].isAlive = true;
 
 		connection.on('error', function(error) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
@@ -151,6 +153,9 @@ function initTalk(wsIndex) {
 		connection.on('close', function() {
 			if (PRINT_EVENTS) {
 				print('連線已關閉', 0, wsIndex);
+			}
+			if (talks[wsIndex].isAlive) {
+				endSession(wsIndex);
 			}
 		});
 		connection.on('message', function(message) {
@@ -201,7 +206,7 @@ function onMessage(wsIndex, data) {
 					if (sender == 0) {
 						parseMessage(wsIndex, msg);
 					} else {
-						print('收到歷史記錄，結束對話：' + JSON.stringify(data), 0, wsIndex);
+						print('收到歷史記錄，結束前次對話', 0, wsIndex);
 						endSession(wsIndex);
 					}
 				}
@@ -344,6 +349,7 @@ function end(wsIndex) {
 	}
 	var talk = talks[wsIndex];
 	talk.hasPartner = false;
+	talk.isAlive = false;
 	changePerson(wsIndex);
 
 	var connection = talks[wsIndex].connection;
