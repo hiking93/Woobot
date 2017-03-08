@@ -5,13 +5,13 @@ var readline = require('readline');
 var open = require('open');
 var fs = require('fs');
 
-const DEBUG_CALLS = true;
-const DEBUG_RECEIVE = false;
+const PRINT_EVENTS = false;
+const AUTO_RESTART = false;
+const DEBUG_CALLS = false;
+const DEBUG_DUPLICATION = false;
+const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
-const DEBUG_DRAFT = true;
-const DEBUG_DUPLICATION = true;
-const PRINT_EVENTS = true;
-const AUTO_RESTART = true;
+const DEBUG_RECEIVE = false;
 const CHAT_KEY = '';
 
 const COOKIE_URI = 'https://wootalk.today/';
@@ -195,8 +195,15 @@ function onMessage(wsIndex, data) {
 		break;
 		case 'new_message': {
 			if (Array.isArray(data)) {
-				for (item of data) {
-					parseMessage(wsIndex, item);
+				// Here comes the message history
+				for (msg of data) {
+					var sender = msg.sender;
+					if (sender == 0) {
+						parseMessage(wsIndex, msg);
+					} else {
+						print('收到歷史記錄，結束對話：' + JSON.stringify(data), 0, wsIndex);
+						endSession(wsIndex);
+					}
 				}
 			} else {
 				parseMessage(wsIndex, data);
@@ -222,11 +229,7 @@ function parseMessage(wsIndex, msg) {
 					print('已離開', 0, wsIndex);
 				}
 				talk.hasPartner = false;
-				if (AUTO_RESTART) {
-					restart();
-				} else {
-					end(wsIndex);
-				}
+				endSession(wsIndex);
 			}
 			break;
 			case 'chat_finding': {
@@ -278,6 +281,14 @@ function parseMessage(wsIndex, msg) {
 
 function printMessage(wsIndex, messageContent) {
 	print('「' + messageContent + '」', 1, wsIndex);
+}
+
+function endSession(wsIndex) {
+	if (AUTO_RESTART) {
+		restart();
+	} else {
+		end(wsIndex);
+	}
 }
 
 function changePerson(wsIndex, callback) {
