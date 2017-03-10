@@ -10,9 +10,11 @@ var AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
-const PRINT_EVENTS = true;
+const PRINT_EVENTS = false;
 const DEBUG_CALLS = false;
-const DEBUG_DUPLICATION = true;
+const DEBUG_DUPLICATION = false;
+const DEBUG_LARGE_DUPLICATION = true;
+const DEBUG_LARGE_DUPLICATION_THRESHOLD = 4;
 const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
@@ -71,12 +73,13 @@ init();
 function init() {
 	talks[0] = {};
 	talks[1] = {};
+	print('\n---------------- 新對話 ----------------');
 	initClient(0);
 }
 
 function restart() {
-	print('---------------- 新對話 ----------------');
 	endAll();
+	print('\n---------------- 新對話 ----------------');
 	initClient(0);
 }
 
@@ -239,7 +242,7 @@ function parseMessage(wsIndex, msg) {
 			}
 			break;
 			case 'chat_otherleave': {
-				if (PRINT_EVENTS) {
+				if (PRINT_EVENTS || !AUTO_RESTART) {
 					print('已離開', 0, wsIndex);
 				}
 				talk.hasPartner = false;
@@ -271,7 +274,8 @@ function parseMessage(wsIndex, msg) {
 				} else {
 					// Duplicated websocket
 					talk.instanceCount += 1;
-					if (DEBUG_DUPLICATION) {
+					if (DEBUG_DUPLICATION || (DEBUG_LARGE_DUPLICATION &&
+							talk.instanceCount >= DEBUG_LARGE_DUPLICATION_THRESHOLD)) {
 						print('重複的連線：' + talk.instanceCount, 0, wsIndex);
 					}
 				}
