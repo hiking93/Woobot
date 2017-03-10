@@ -10,12 +10,12 @@ var AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
-const PRINT_EVENTS = false;
+const PRINT_EVENTS = true;
 const DEBUG_CALLS = false;
 const DEBUG_DUPLICATION = false;
 const DEBUG_LARGE_DUPLICATION = true;
 const DEBUG_LARGE_DUPLICATION_THRESHOLD = 4;
-const DEBUG_DRAFT = false;
+const DEBUG_DRAFT = true;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
 
@@ -164,7 +164,17 @@ function initTalk(wsIndex) {
 		connection.on('close', function() {
 			if (talks[wsIndex].isAlive) {
 				print('連線意外關閉', 0, wsIndex);
-				endSession(wsIndex);
+				talks[wsIndex].isAlive = false;
+
+				var partnerTalk = talks[wsIndex == 0 ? 1 : 0];
+				if (partnerTalk.isAlive) {
+					// Reconnect
+					partnerTalk.waitForPartnerToReconnect = true;
+					end(wsIndex);
+					initClient(wsIndex);
+				} else {
+					endSession(wsIndex);
+				}
 			} else if (PRINT_EVENTS) {
 				print('連線已關閉', 0, wsIndex);
 			}
@@ -213,6 +223,12 @@ function onMessage(wsIndex, data) {
 			if (Array.isArray(data)) {
 				// Here comes the message history
 				for (msg of data) {
+					var partnerTalk = talks[wsIndex == 0 ? 1 : 0];
+					if (partnerTalk.waitForPartnerToReconnect){
+						print('重新連接成功', 0, wsIndex);
+						partnerTalk.waitForPartnerToReconnect = false;
+						break;
+					}
 					var sender = msg.sender;
 					if (sender == 0) {
 						parseMessage(wsIndex, msg);
@@ -242,7 +258,7 @@ function parseMessage(wsIndex, msg) {
 			}
 			break;
 			case 'chat_otherleave': {
-				if (PRINT_EVENTS || !AUTO_RESTART) {
+				if (PRINT_EVENTS || AUTO_RESTART) {
 					print('已離開', 0, wsIndex);
 				}
 				talk.hasPartner = false;
@@ -268,14 +284,13 @@ function parseMessage(wsIndex, msg) {
 							print(wsIndex + ' send from draft: ' + draftItem);
 						}
 					}
-					if (wsIndex == 0) {
+					if (wsIndex == 0 && !talks[1].isAlive) {
 						initClient(1);
 					}
 				} else {
 					// Duplicated websocket
 					talk.instanceCount += 1;
-					if (DEBUG_DUPLICATION || (DEBUG_LARGE_DUPLICATION &&
-							talk.instanceCount >= DEBUG_LARGE_DUPLICATION_THRESHOLD)) {
+					if (DEBUG_DUPLICATION || (DEBUG_LARGE_DUPLICATION && talk.instanceCount >= DEBUG_LARGE_DUPLICATION_THRESHOLD)) {
 						print('重複的連線：' + talk.instanceCount, 0, wsIndex);
 					}
 				}
@@ -326,7 +341,7 @@ function onBotCheck(wsIndex, msg) {
 
 function sendMessage(wsIndex, content) {
 	var talk = talks[wsIndex];
-	if (isConnectionAlive(wsIndex)) {
+	if (talk.isAlive) {
 		send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
 	} else if (talk.draft) {
 		talk.draft.push(content);
@@ -339,18 +354,12 @@ function sendMessage(wsIndex, content) {
 function send(wsIndex, msg) {
 	var talk = talks[wsIndex];
 	var connection = talk.connection;
-	if (isConnectionAlive(wsIndex)) {
+	if (talk.isAlive) {
 		connection.sendUTF(msg);
 		if (DEBUG_SEND) {
 			print(wsIndex + ' send: ' + msg);
 		}
 	}
-}
-
-function isConnectionAlive(wsIndex) {
-	var talk = talks[wsIndex];
-	var connection = talk.connection;
-	return connection && !connection.closeDescription;
 }
 
 function endAll() {
@@ -362,10 +371,10 @@ function end(wsIndex) {
 	if (DEBUG_CALLS) {
 		print('end ' + wsIndex);
 	}
+	changePerson(wsIndex);
 	var talk = talks[wsIndex];
 	talk.hasPartner = false;
 	talk.isAlive = false;
-	changePerson(wsIndex);
 
 	var connection = talks[wsIndex].connection;
 	if (connection && !connection.closeDescription) {
