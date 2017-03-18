@@ -18,6 +18,7 @@ const DEBUG_LARGE_DUPLICATION_THRESHOLD = 4;
 const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
+const DEBUG_UPDATE_STATE = false;
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -202,12 +203,10 @@ function initTalk(wsIndex) {
 	ws.connect(WS_URI, null, WS_ORIGIN, headers);
 }
 
-function onMessage(wsIndex, data) {
-	var msg = JSON.parse(data)[0];
+function onMessage(wsIndex, rawMessage) {
+	var msg = JSON.parse(rawMessage)[0];
 	var type = msg[0];
 	var data = msg[1].data;
-	var talk = talks[wsIndex];
-	var partner = talks[wsIndex == 0 ? 1 : 0];
 	switch (type) {
 		case 'client_connected': {
 			if (recoverFlag[wsIndex]){
@@ -232,6 +231,13 @@ function onMessage(wsIndex, data) {
 				}
 			} else {
 				parseMessage(wsIndex, data);
+			}
+		}
+		break;
+		case 'update_state': {
+			send(wsIndex == 0 ? 1 : 0, msg);
+			if (DEBUG_UPDATE_STATE) {
+				print(JSON.stringify(msg), 0, wsIndex);
 			}
 		}
 		break;
@@ -298,9 +304,6 @@ function parseMessage(wsIndex, msg) {
 			var messageContent = msg['message'];
 			printMessage(wsIndex, messageContent);
 			sendMessage(wsIndex == 0 ? 1 : 0, messageContent);
-			if (messageContent.includes('女')) {
-				console.log("\007");
-			}
 		}
 	}
 }
