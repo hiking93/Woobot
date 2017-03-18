@@ -7,7 +7,7 @@ var fs = require('fs');
 
 // Settings
 var AUTO_RESTART = true;
-const CHAT_KEY = '';
+const CHAT_KEY = '成人模式';
 
 // Debug messages
 const PRINT_EVENTS = true;
@@ -15,7 +15,7 @@ const DEBUG_CALLS = false;
 const DEBUG_DUPLICATION = false;
 const DEBUG_LARGE_DUPLICATION = true;
 const DEBUG_LARGE_DUPLICATION_THRESHOLD = 4;
-const DEBUG_DRAFT = true;
+const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
 
@@ -24,7 +24,8 @@ const WS_URI = 'wss://wootalk.today/websocket';
 const WS_ORIGIN = 'https://wootalk.today';
 const CONFIG_FILE_NAME = 'config.json';
 
-var talks = [];
+var talks = [{}, {}];
+var recoverFlag = [false, false];
 var config = readConfig();
 
 readline.createInterface({
@@ -71,16 +72,18 @@ process.on('SIGINT', function () {
 init();
 
 function init() {
-	talks[0] = {};
-	talks[1] = {};
-	print('\n---------------- 新對話 ----------------');
+	printStartMessage();
 	initClient(0);
 }
 
 function restart() {
 	endAll();
-	print('\n---------------- 新對話 ----------------');
-	initClient(0);
+	init();
+}
+
+function printStartMessage() {
+	var chatKeyMessage = CHAT_KEY ? CHAT_KEY : "新對話";
+	print('\n---------------- ' + chatKeyMessage + ' ----------------');
 }
 
 function initClient(wsIndex) {
@@ -165,16 +168,10 @@ function initTalk(wsIndex) {
 			if (talks[wsIndex].isAlive) {
 				print('連線意外關閉', 0, wsIndex);
 				talks[wsIndex].isAlive = false;
-
-				var partnerTalk = talks[wsIndex == 0 ? 1 : 0];
-				if (partnerTalk.isAlive) {
-					// Reconnect
-					partnerTalk.waitForPartnerToReconnect = true;
-					end(wsIndex);
-					initClient(wsIndex);
-				} else {
-					endSession(wsIndex);
-				}
+				// Reconnect
+				recoverFlag[wsIndex] = true;
+				end(wsIndex);
+				initClient(wsIndex);
 			} else if (PRINT_EVENTS) {
 				print('連線已關閉', 0, wsIndex);
 			}
@@ -202,9 +199,6 @@ function initTalk(wsIndex) {
 		'Upgrade': 'websocket',
 		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64)'
 	}
-	if (CHAT_KEY && wsIndex == 0) {
-		print('使用密語：' + CHAT_KEY);
-	}
 	ws.connect(WS_URI, null, WS_ORIGIN, headers);
 }
 
@@ -212,9 +206,13 @@ function onMessage(wsIndex, data) {
 	var msg = JSON.parse(data)[0];
 	var type = msg[0];
 	var data = msg[1].data;
+	var talk = talks[wsIndex];
+	var partner = talks[wsIndex == 0 ? 1 : 0];
 	switch (type) {
 		case 'client_connected': {
-			if (PRINT_EVENTS) {
+			if (recoverFlag[wsIndex]){
+				print('重新連接成功', 0, wsIndex);
+			} else if (PRINT_EVENTS) {
 				print('已連接', 0, wsIndex);
 			}
 		}
@@ -223,16 +221,10 @@ function onMessage(wsIndex, data) {
 			if (Array.isArray(data)) {
 				// Here comes the message history
 				for (msg of data) {
-					var partnerTalk = talks[wsIndex == 0 ? 1 : 0];
-					if (partnerTalk.waitForPartnerToReconnect){
-						print('重新連接成功', 0, wsIndex);
-						partnerTalk.waitForPartnerToReconnect = false;
-						break;
-					}
 					var sender = msg.sender;
 					if (sender == 0) {
 						parseMessage(wsIndex, msg);
-					} else {
+					} else if (!recoverFlag[wsIndex]){
 						print('收到歷史記錄，結束前次對話', 0, wsIndex);
 						endSession(wsIndex);
 						break;
@@ -284,6 +276,7 @@ function parseMessage(wsIndex, msg) {
 							print(wsIndex + ' send from draft: ' + draftItem);
 						}
 					}
+					talk.draft = [];
 					if (wsIndex == 0 && !talks[1].isAlive) {
 						initClient(1);
 					}
@@ -371,6 +364,7 @@ function end(wsIndex) {
 	if (DEBUG_CALLS) {
 		print('end ' + wsIndex);
 	}
+	recoverFlag[wsIndex] = false;
 	changePerson(wsIndex);
 	var talk = talks[wsIndex];
 	talk.hasPartner = false;
