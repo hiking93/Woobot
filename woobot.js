@@ -7,7 +7,7 @@ var fs = require('fs');
 
 // Settings
 var AUTO_RESTART = true;
-const CHAT_KEY = '成人模式';
+const CHAT_KEY = '';
 
 // Debug messages
 const PRINT_EVENTS = true;
@@ -218,7 +218,7 @@ function onMessage(wsIndex, rawMessage) {
 		break;
 		case 'new_message': {
 			if (Array.isArray(data)) {
-				// Here comes the message history
+				// Here comes the welcome message or message history
 				for (msg of data) {
 					var sender = msg.sender;
 					if (sender == 0) {
@@ -226,6 +226,10 @@ function onMessage(wsIndex, rawMessage) {
 					} else if (!recoverFlag[wsIndex]){
 						print('收到歷史記錄，結束前次對話', 0, wsIndex);
 						endSession(wsIndex);
+						break;
+					} else {
+						recoverFlag[wsIndex] = false;
+						print('恢復對話，忽略歷史記錄', 0, wsIndex);
 						break;
 					}
 				}
@@ -367,7 +371,6 @@ function end(wsIndex) {
 	if (DEBUG_CALLS) {
 		print('end ' + wsIndex);
 	}
-	recoverFlag[wsIndex] = false;
 	changePerson(wsIndex);
 	var talk = talks[wsIndex];
 	talk.hasPartner = false;
