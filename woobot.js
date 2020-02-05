@@ -267,22 +267,22 @@ function parseMessage(wsIndex, msg) {
 		switch (msg.status) {
 			case 'chat_botcheck': {
 				onBotCheck(wsIndex, msg.message);
-			}
 				break;
+			}
 			case 'chat_otherleave': {
 				if (PRINT_EVENTS || AUTO_RESTART) {
 					print('已離開', 0, wsIndex);
 				}
 				talk.hasPartner = false;
 				endSession(wsIndex);
-			}
 				break;
+			}
 			case 'chat_finding': {
 				if (PRINT_EVENTS) {
 					print('正在尋找對象……', 0, wsIndex);
 				}
-			}
 				break;
+			}
 			case 'chat_started': {
 				if (!talk.hasPartner) {
 					// Start chat
@@ -307,8 +307,8 @@ function parseMessage(wsIndex, msg) {
 						print('重複的連線：' + talk.instanceCount, 0, wsIndex);
 					}
 				}
-			}
 				break;
+			}
 		}
 	} else if ('sender' in msg && msg.sender == 2) {
 		// Incoming message
@@ -317,7 +317,11 @@ function parseMessage(wsIndex, msg) {
 			talks[wsIndex].lastId = msgId;
 			var messageContent = msg['message'];
 			printMessage(wsIndex, messageContent);
-			sendMessage(wsIndex == 0 ? 1 : 0, messageContent);
+			if (messageContent.includes("sexykatty")) {
+				endSession(wsIndex)
+			} else {
+				sendMessage(wsIndex == 0 ? 1 : 0, messageContent);
+			}
 		}
 	}
 }
