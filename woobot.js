@@ -10,7 +10,7 @@ var AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
-const PRINT_EVENTS = true;
+const PRINT_EVENTS = false;
 const DEBUG_CALLS = false;
 const DEBUG_DUPLICATION = false;
 const DEBUG_LARGE_DUPLICATION = true;
@@ -19,6 +19,7 @@ const DEBUG_DRAFT = false;
 const DEBUG_SEND = false;
 const DEBUG_RECEIVE = false;
 const DEBUG_UPDATE_STATE = false;
+const DEBUG_PING = false;
 
 const COOKIE_URI = 'https://wootalk.today/';
 const WS_URI = 'wss://wootalk.today/websocket';
@@ -50,7 +51,7 @@ readline.createInterface({
 			end(0);
 		} else if (input == 'end ws1') {
 			end(1);
-		} 
+		}
 	} else if (input.startsWith('ws')) {
 		if (input.startsWith('ws0 ')) {
 			var msg = input.replace('ws0 ', '');
@@ -121,7 +122,7 @@ function readConfig() {
 			print("已讀取設定檔");
 		}
 		return config;
-	} catch(err) {
+	} catch (err) {
 		if (PRINT_EVENTS) {
 			print("沒有設定檔");
 		}
@@ -130,14 +131,14 @@ function readConfig() {
 }
 
 function saveConfig() {
-	fs.writeFile(CONFIG_FILE_NAME, JSON.stringify(config, null, 4), function(err) {
+	fs.writeFile(CONFIG_FILE_NAME, JSON.stringify(config, null, 4), function (err) {
 		if (err) {
 			print(err);
 		}
 		if (PRINT_EVENTS) {
 			print("已儲存設定檔");
 		}
-	}); 
+	});
 }
 
 function initTalk(wsIndex) {
@@ -147,11 +148,11 @@ function initTalk(wsIndex) {
 
 	var ws = new WebSocketClient();
 
-	ws.on('connectFailed', function(error) {
+	ws.on('connectFailed', function (error) {
 		print('連線失敗 - ' + error.toString(), 0, wsIndex);
 	});
 
-	ws.on('connect', function(connection) {
+	ws.on('connect', function (connection) {
 		if (PRINT_EVENTS) {
 			print('連線已開啟', 0, wsIndex);
 		}
@@ -162,10 +163,10 @@ function initTalk(wsIndex) {
 		talks[wsIndex].hasPartner = false;
 		talks[wsIndex].isAlive = true;
 
-		connection.on('error', function(error) {
+		connection.on('error', function (error) {
 			print('連線錯誤 - ' + error.toString(), 0, wsIndex);
 		});
-		connection.on('close', function() {
+		connection.on('close', function () {
 			if (talks[wsIndex].isAlive) {
 				print('連線意外關閉', 0, wsIndex);
 				talks[wsIndex].isAlive = false;
@@ -177,7 +178,7 @@ function initTalk(wsIndex) {
 				print('連線已關閉', 0, wsIndex);
 			}
 		});
-		connection.on('message', function(message) {
+		connection.on('message', function (message) {
 			if (message.type === 'utf8') {
 				onMessage(wsIndex, message.utf8Data);
 			} else {
@@ -209,13 +210,13 @@ function onMessage(wsIndex, rawMessage) {
 	var data = msg[1].data;
 	switch (type) {
 		case 'client_connected': {
-			if (recoverFlag[wsIndex]){
+			if (recoverFlag[wsIndex]) {
 				print('重新連接成功', 0, wsIndex);
 			} else if (PRINT_EVENTS) {
 				print('已連接', 0, wsIndex);
 			}
+			break;
 		}
-		break;
 		case 'new_message': {
 			if (Array.isArray(data)) {
 				// Here comes the welcome message or message history
@@ -223,7 +224,7 @@ function onMessage(wsIndex, rawMessage) {
 					var sender = msg.sender;
 					if (sender == 0) {
 						parseMessage(wsIndex, msg);
-					} else if (!recoverFlag[wsIndex]){
+					} else if (!recoverFlag[wsIndex]) {
 						print('收到歷史記錄，結束前次對話', 0, wsIndex);
 						endSession(wsIndex);
 						break;
@@ -236,15 +237,23 @@ function onMessage(wsIndex, rawMessage) {
 			} else {
 				parseMessage(wsIndex, data);
 			}
+			break;
 		}
-		break;
 		case 'update_state': {
-			send(wsIndex == 0 ? 1 : 0, msg);
+			var msgString = JSON.stringify(msg)
 			if (DEBUG_UPDATE_STATE) {
+				print(msgString, 0, wsIndex);
+			}
+			send(wsIndex == 0 ? 1 : 0, msgString);
+			break;
+		}
+		case 'websocket_rails.ping': {
+			if (DEBUG_PING) {
 				print(JSON.stringify(msg), 0, wsIndex);
 			}
+			send(wsIndex, '["websocket_rails.pong",{"id":' + generateId() + ',"data":{}}]');
+			break;
 		}
-		break;
 	}
 }
 
@@ -258,7 +267,7 @@ function parseMessage(wsIndex, msg) {
 			case 'chat_botcheck': {
 				onBotCheck(wsIndex, msg.message);
 			}
-			break;
+				break;
 			case 'chat_otherleave': {
 				if (PRINT_EVENTS || AUTO_RESTART) {
 					print('已離開', 0, wsIndex);
@@ -266,13 +275,13 @@ function parseMessage(wsIndex, msg) {
 				talk.hasPartner = false;
 				endSession(wsIndex);
 			}
-			break;
+				break;
 			case 'chat_finding': {
 				if (PRINT_EVENTS) {
 					print('正在尋找對象……', 0, wsIndex);
 				}
 			}
-			break;
+				break;
 			case 'chat_started': {
 				if (!talk.hasPartner) {
 					// Start chat
@@ -298,7 +307,7 @@ function parseMessage(wsIndex, msg) {
 					}
 				}
 			}
-			break;
+				break;
 		}
 	} else if ('sender' in msg && msg.sender == 2) {
 		// Incoming message
@@ -342,7 +351,7 @@ function onBotCheck(wsIndex, msg) {
 function sendMessage(wsIndex, content) {
 	var talk = talks[wsIndex];
 	if (talk.isAlive) {
-		send(wsIndex, '["new_message",{"id":1,"data":{"message":"'+ content +'","msg_id":"1"}}]');
+		send(wsIndex, '["new_message",{"id":' + generateId() + ',"data":{"message":"' + content + '","msg_id":"1"}}]');
 	} else if (talk.draft) {
 		talk.draft.push(content);
 		if (DEBUG_SEND || DEBUG_DRAFT) {
@@ -382,6 +391,10 @@ function end(wsIndex) {
 	}
 }
 
+function generateId() {
+	return Math.floor(Math.random() * 65536);
+};
+
 function print(content, highlight, wsIndex) {
 	var name;
 	var style;
@@ -394,7 +407,7 @@ function print(content, highlight, wsIndex) {
 	} else {
 		style = chalk.white;
 		name = '';
-	} 
+	}
 	if (highlight) {
 		style = style.bold;
 	}
