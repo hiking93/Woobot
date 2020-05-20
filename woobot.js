@@ -10,7 +10,7 @@ var AUTO_RESTART = true;
 const CHAT_KEY = '';
 
 // Debug messages
-const PRINT_EVENTS = false;
+const PRINT_EVENTS = true;
 const DEBUG_CALLS = false;
 const DEBUG_DUPLICATION = false;
 const DEBUG_LARGE_DUPLICATION = true;
@@ -351,6 +351,7 @@ function onBotCheck(wsIndex, msg) {
 	var url = msg.substring(startIndex, endIndex);
 	print('網頁認證 ' + url, 0, wsIndex);
 	open(url);
+	process.exit(1)
 }
 
 function sendMessage(wsIndex, content) {
