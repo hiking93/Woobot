@@ -1,0 +1,25 @@
+{
+  "name": "woobot",
+  "version": "1.0.0",
+  "description": "Woobot",
+  "main": "woobot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiking93/woobot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hiking93/woobot/issues"
+  },
+  "homepage": "https://github.com/hiking93/woobot#readme",
+  "dependencies": {
+    "chalk": "^4.0.0",
+    "open": "^7.0.4",
+    "request": "^2.88.2",
+    "websocket": "^1.0.31"
+  }
+}
